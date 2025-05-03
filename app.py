@@ -13,7 +13,8 @@ nltk.download('stopwords')
 app = Flask(__name__)
 
 # Initialize BART summarizer
-summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
+summarizer = pipeline("summarization", model="facebook/bart-base")
+
 
 def get_article_content(url):
     """Ekstrak konten artikel dari URL berita"""
