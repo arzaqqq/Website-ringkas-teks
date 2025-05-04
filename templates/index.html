@@ -10,6 +10,7 @@
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
+
 <body>
     <!-- Hero Section -->
     <div class="hero-section">
@@ -60,7 +61,13 @@
             <form method="post" id="summarize-form">
                 <div class="mb-4">
                     <label for="url" class="form-label fw-bold">Masukkan URL Berita</label>
+                    {% if warning_message %}
+                    <div style="color: red;" class="mb-2">
+                        <strong>Peringatan!</strong> {{ warning_message }}
+                    </div>
+                    {% endif %}
                     <div class="input-group">
+                        
                         <input type="url" class="form-control form-control-lg" id="url" name="url" 
                                placeholder="https://www.contoh.com/berita/artikel" value="{{ url }}" required>
                         <button type="submit" class="btn btn-summarize">
@@ -72,6 +79,7 @@
                         </button>
                     </div>
                     <div class="form-text">Masukkan URL artikel dari portal berita online</div>
+                    
                 </div>
             </form>
             
@@ -99,7 +107,11 @@
                         <div class="original-text">
                             <p>{{ original_text }}</p>
                         </div>
+                        {% if word_count %}
+                            <p class="mt-2 ms-2 text-primary"><strong>Jumlah Kata:</strong> {{ word_count }}</p>
+                        {% endif %}
                     </div>
+                    
                 </div>
             {% endif %}
         </div>
