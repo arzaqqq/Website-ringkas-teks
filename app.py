@@ -88,8 +88,8 @@ def index():
             title, original_text = get_article_content(url)
             if original_text and not original_text.startswith("Error"):
                 word_count = count_words(original_text)
-                if word_count < 200:
-                    warning_message = "Teks terlalu pendek (kurang dari 200 kata)."
+                if word_count < 150:
+                    warning_message = "Teks terlalu pendek (kurang dari 150 kata)."
                 elif word_count > 600:
                     warning_message = "Teks terlalu panjang (lebih dari 600 kata)."
                 else:
@@ -120,8 +120,8 @@ def api_summarize():
         return jsonify({"error": original_text}), 400
     
     word_count = count_words(original_text)
-    if word_count < 200:
-        return jsonify({"error": "Teks terlalu pendek (kurang dari 200 kata)."}), 400
+    if word_count < 150:
+        return jsonify({"error": "Teks terlalu pendek (kurang dari 150 kata)."}), 400
     elif word_count > 600:
         return jsonify({"error": "Teks terlalu panjang (lebih dari 600 kata)."}), 400
     
@@ -137,3 +137,5 @@ def api_summarize():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
+
