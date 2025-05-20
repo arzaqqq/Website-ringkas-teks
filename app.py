@@ -40,40 +40,37 @@ def count_words(text):
 
 def summarize_with_bart(text):
     """Ringkas teks menggunakan BART"""
-    # Tokenize the text and limit to 1024 tokens for BART
     start_time = time.time()
-    tokens = tokenizer.encode(text)
-    max_input_length = 1024
-    if len(tokens) > max_input_length:
-        text = tokenizer.decode(tokens[:max_input_length])  # Trim the text to fit within BART's token limit
-    
-    # Proses teks sebelum melakukan ringkasan
-    text = preprocess_text(text)
-    
     try:
-        # Ringkasan BART dengan pengaturan default
-        processing_time = time.time() - start_time
+        # Tokenize dan preprocessing
+        tokens = tokenizer.encode(text)
+        if len(tokens) > 1024:
+            text = tokenizer.decode(tokens[:1024])
+        text = preprocess_text(text)
+        
+        # Proses summarization
         summary = summarizer(text, do_sample=False)
+        
+        # Hitung waktu SETELAH proses
+        processing_time = time.time() - start_time
         return summary[0]['summary_text'], round(processing_time, 2)
     except Exception as e:
-        return f"Error summarizing with BART: {str(e)}"
+        return f"Error: {str(e)}", 0
 
 def summarize_with_textrank(text):
     """Ringkas teks menggunakan TextRank"""
     start_time = time.time()
     try:
-        # Proses teks sebelum melakukan ringkasan
         text = preprocess_text(text)
-        processing_time = time.time() - start_time
         
-        # Ringkasan TextRank dengan pengaturan default (ratio 0.2)
+        # Proses summarization
         summary = textrank_summarizer.summarize(text)
+        
+        # Hitung waktu SETELAH proses
+        processing_time = time.time() - start_time
         return summary, round(processing_time, 2)
-        if not summary:
-            return "Teks terlalu pendek untuk diringkas dengan TextRank"
-        return summary
     except Exception as e:
-        return f"Error summarizing with TextRank: {str(e)}"
+        return f"Error: {str(e)}", 0
 def count_words(text):
     """Menghitung jumlah kata dalam teks"""
     return len(text.split())
@@ -84,6 +81,8 @@ def index():
     original_text = ""
     bart_summary = ""
     textrank_summary = ""
+    bart_time = 0
+    textrank_time = 0
     url = ""
     word_count = 0
     warning_message = ""
@@ -99,8 +98,8 @@ def index():
                 elif word_count > 600:
                     warning_message = "Teks terlalu panjang (lebih dari 600 kata)."
                 else:
-                    bart_summary = summarize_with_bart(original_text)
-                    textrank_summary = summarize_with_textrank(original_text)
+                    bart_summary, bart_time = summarize_with_bart(original_text)
+                    textrank_summary, textrank_time = summarize_with_textrank(original_text)
             
     return render_template('index.html', 
                           title=title,
@@ -109,6 +108,8 @@ def index():
                           textrank_summary=textrank_summary,
                           word_count=word_count,
                           warning_message=warning_message,
+                          bart_time=bart_time,
+                          textrank_time=textrank_time,
                           url=url)
 
 
