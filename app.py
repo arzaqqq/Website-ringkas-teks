@@ -4,6 +4,7 @@ from newspaper import Article
 import nltk
 from summa import summarizer as textrank_summarizer
 import re
+import time
 
 # Download nltk resources (jika diperlukan)
 nltk.download('punkt')
@@ -40,6 +41,7 @@ def count_words(text):
 def summarize_with_bart(text):
     """Ringkas teks menggunakan BART"""
     # Tokenize the text and limit to 1024 tokens for BART
+    start_time = time.time()
     tokens = tokenizer.encode(text)
     max_input_length = 1024
     if len(tokens) > max_input_length:
@@ -50,19 +52,23 @@ def summarize_with_bart(text):
     
     try:
         # Ringkasan BART dengan pengaturan default
+        processing_time = time.time() - start_time
         summary = summarizer(text, do_sample=False)
-        return summary[0]['summary_text']
+        return summary[0]['summary_text'], round(processing_time, 2)
     except Exception as e:
         return f"Error summarizing with BART: {str(e)}"
 
 def summarize_with_textrank(text):
     """Ringkas teks menggunakan TextRank"""
+    start_time = time.time()
     try:
         # Proses teks sebelum melakukan ringkasan
         text = preprocess_text(text)
+        processing_time = time.time() - start_time
         
         # Ringkasan TextRank dengan pengaturan default (ratio 0.2)
         summary = textrank_summarizer.summarize(text)
+        return summary, round(processing_time, 2)
         if not summary:
             return "Teks terlalu pendek untuk diringkas dengan TextRank"
         return summary

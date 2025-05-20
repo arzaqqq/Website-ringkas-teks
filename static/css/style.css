@@ -88,3 +88,35 @@ body {
 .loading-spinner {
     display: none;
 }
+
+
+
+/* Gaya untuk time badge */
+.time-badge {
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 0.9em;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 10px;
+    position: absolute;
+    bottom: -15px;
+    right: 15px;
+    backdrop-filter: blur(5px);
+}
+
+.bart-summary .time-badge {
+    background: rgba(33, 150, 243, 0.9);
+}
+
+.textrank-summary .time-badge {
+    background: rgba(76, 175, 80, 0.9);
+}
+
+.summary-container {
+    position: relative;
+    padding-bottom: 25px; /* Ruang untuk time badge */
+}
