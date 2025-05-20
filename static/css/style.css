@@ -109,11 +109,11 @@ body {
 }
 
 .bart-summary .time-badge {
-    background: rgba(33, 150, 243, 0.9);
+    background: #6a11cb;
 }
 
 .textrank-summary .time-badge {
-    background: rgba(76, 175, 80, 0.9);
+    background:  #2575fc;
 }
 
 .summary-container {
