@@ -178,8 +178,8 @@ def index():
                 word_count = count_words(original_text)
                 if word_count < 150:
                     warning_message = "Teks terlalu pendek (kurang dari 150 kata)."
-                elif word_count > 600:
-                    warning_message = "Teks terlalu panjang (lebih dari 600 kata)."
+                elif word_count > 400:
+                    warning_message = "Teks terlalu panjang (lebih dari 400 kata)."
                 else:
                     bart_summary, bart_time, bart_token_count, bart_word_count = summarize_with_bart(original_text)
                     textrank_summary, textrank_time, textrank_token_count, textrank_word_count = summarize_with_textrank(
@@ -212,8 +212,8 @@ def api_summarize():
     word_count = count_words(original_text)
     if word_count < 150:
         return jsonify({"error": "Teks terlalu pendek (kurang dari 150 kata)."}), 400
-    elif word_count > 600:
-        return jsonify({"error": "Teks terlalu panjang (lebih dari 600 kata)."}), 400
+    elif word_count > 400:
+        return jsonify({"error": "Teks terlalu panjang (lebih dari 400 kata)."}), 400
     bart_summary, _, bart_token_count, bart_word_count = summarize_with_bart(original_text)
     textrank_summary, _, textrank_token_count, textrank_word_count = summarize_with_textrank(
         original_text, target_word_count=bart_word_count
