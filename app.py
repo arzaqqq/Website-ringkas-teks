@@ -13,8 +13,8 @@ nltk.download('stopwords')
 app = Flask(__name__)
 
 # Initialize BART summarizer
-summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
-tokenizer = AutoTokenizer.from_pretrained("facebook/bart-large-cnn")
+summarizer = pipeline("summarization", model="gaduhhartawan/indobart-base-v2")
+tokenizer = AutoTokenizer.from_pretrained("gaduhhartawan/indobart-base-v2")
 
 def preprocess_text(text):
     """Pemrosesan teks dasar untuk menghapus karakter yang tidak perlu"""
