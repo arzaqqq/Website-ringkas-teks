@@ -14,7 +14,7 @@ body {
 
 .hero-section .lead {
     font-size: 1.25rem;
-    opacity: 0.9;
+    opacity: 0.9; 
 }
 
 .main-content {
@@ -130,7 +130,8 @@ body {
 }
 
 .token-badge {
-    right: 7rem;
+    right: 10rem;
+
 }
 
 .bart-summary .time-badge, .bart-summary .token-badge {
