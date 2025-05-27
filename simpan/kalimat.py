@@ -4,7 +4,7 @@ import nltk
 import re
 import time
 from flask import Flask, render_template, request, jsonify
-from newspaper import Article, Config
+from newspaper import Article
 
 # Download nltk resources
 nltk.download('punkt')
@@ -19,7 +19,7 @@ tokenizer = AutoTokenizer.from_pretrained("gaduhhartawan/indobart-base-v2")
 
 # Daftar stopwords khusus untuk menghapus metadata berita, iklan, dan tanda --
 custom_stopwords = [
-    'ADVERTISEMENT', 'Liputan6.com', 'KOMPAS.com', 'Jakarta-', 'jakarta',
+    'ADVERTISEMENT', 'Liputan6.com', 'KOMPAS.com', 'Jakarta-', 
     'GambasVideo', 'CNN', 'Detik.com', 'Tribunnews.com', 
     'Baca Juga', 'Baca juga', 'Berita Terkait', 'Simak Juga', 
     '--', '---', '–', '—', 'SCROLL TO CONTINUE WITH CONTENT'
@@ -40,10 +40,9 @@ def preprocess_text(text, remove_stopwords=True):
     return text
 
 def get_article_content(url):
+    """Ekstrak konten artikel dari URL berita"""
     try:
-        config = Config()
-        config.browser_user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        article = Article(url, config=config)
+        article = Article(url)
         article.download()
         article.parse()
         return article.title, article.text
@@ -59,6 +58,11 @@ def count_tokens(text):
     tokens = tokenizer.encode(text, add_special_tokens=False)
     return len(tokens)
 
+def count_sentences(text):
+    """Menghitung jumlah kalimat dalam teks"""
+    sentences = nltk.sent_tokenize(text)
+    return len(sentences)
+
 def summarize_with_bart(text):
     """Ringkas teks menggunakan BART"""
     start_time = time.time()
@@ -70,91 +74,65 @@ def summarize_with_bart(text):
         summary = summarizer(
             text, 
             do_sample=False, 
-            max_length=600,
-            min_length=90
+            max_length=200,
+            min_length=80
         )
         summary_text = summary[0]['summary_text']
         token_count = count_tokens(summary_text)
         word_count = count_words(summary_text)
+        sentence_count = count_sentences(summary_text)
         processing_time = time.time() - start_time
-        return summary_text, round(processing_time, 2), token_count, word_count
+        return summary_text, round(processing_time, 2), token_count, word_count, sentence_count
     except Exception as e:
-        return f"Error: {str(e)}", 0, 0, 0
+        return f"Error: {str(e)}", 0, 0, 0, 0
 
-def summarize_with_textrank(text, target_word_count):
-    """Ringkas teks menggunakan TextRank dengan jumlah kata sesuai BART"""
+def summarize_with_textrank(text, target_sentence_count):
+    """Ringkas teks menggunakan TextRank dengan jumlah kalimat sesuai BART"""
     start_time = time.time()
     try:
         text = preprocess_text(text, remove_stopwords=True)
         print(f"Preprocessed text for TextRank: {text[:200]}...")
         
-        total_words = count_words(text)
-        ratio = min(target_word_count / total_words * 1.5, 1.0) if total_words > 0 else 0.5
-        
-        summary = textrank_summarizer.summarize(text, ratio=ratio, scores=True)
+        # Gunakan rasio awal untuk mendapatkan ringkasan awal
+        summary = textrank_summarizer.summarize(text, ratio=0.5, scores=True)
         if not summary:
-            summary = textrank_summarizer.summarize(text, ratio=0.5, scores=True)
+            summary = textrank_summarizer.summarize(text, ratio=0.7, scores=True)
         
         # Urutkan kalimat berdasarkan skor TextRank
         sentences = [(sentence, score) for sentence, score in summary]
         sentences = sorted(sentences, key=lambda x: x[1], reverse=True)
         print(f"Initial TextRank sentences: {[s[0] for s in sentences]}, Words: {count_words(' '.join(s[0] for s in sentences))}")
         
-        # Pilih kalimat hingga mendekati jumlah kata target
-        adjusted_summary = ""
-        current_words = 0
-        selected_sentences = []
-        for sentence, _ in sentences:
-            sentence_words = count_words(sentence)
-            if current_words + sentence_words <= target_word_count * 1.2:  # Toleransi 20%
-                selected_sentences.append(sentence)
-                current_words += sentence_words
-            else:
-                break
+        # Pilih jumlah kalimat sesuai target_sentence_count
+        selected_sentences = [sentence for sentence, _ in sentences[:target_sentence_count]]
         
-        # Jika jumlah kata kurang, tambahkan kalimat dari teks asli
-        if current_words < target_word_count:
+        # Jika jumlah kalimat kurang dari target, tambahkan kalimat dari teks asli
+        if len(selected_sentences) < target_sentence_count:
             original_sentences = nltk.sent_tokenize(text)
             original_sentences = sorted(original_sentences, key=lambda x: count_words(x))
             for sentence in original_sentences:
                 if sentence not in selected_sentences:
-                    sentence_words = count_words(sentence)
-                    if current_words + sentence_words <= target_word_count * 1.2:
-                        selected_sentences.append(sentence)
-                        current_words += sentence_words
-                    if current_words >= target_word_count * 0.9:  # Minimal 90% dari target
+                    selected_sentences.append(sentence)
+                    if len(selected_sentences) >= target_sentence_count:
                         break
         
         # Gabungkan kalimat yang dipilih
         adjusted_summary = " ".join(selected_sentences)
         
-        # Potong jika melebihi target kata
-        if current_words > target_word_count:
-            sentences = nltk.sent_tokenize(adjusted_summary)
-            adjusted_summary = ""
-            current_words = 0
-            for sentence in sentences:
-                sentence_words = count_words(sentence)
-                if current_words + sentence_words <= target_word_count:
-                    adjusted_summary += sentence + " "
-                    current_words += sentence_words
-                else:
-                    break
-            adjusted_summary = adjusted_summary.strip()
-        
         # Pastikan ringkasan berakhir pada kalimat lengkap
         if adjusted_summary:
             sentences = nltk.sent_tokenize(adjusted_summary)
             if sentences:
-                adjusted_summary = " ".join(sentences)
+                adjusted_summary = " ".join(sentences[:target_sentence_count])
         
-        print(f"Adjusted TextRank summary: {adjusted_summary}, Words: {count_words(adjusted_summary)}, Tokens: {count_tokens(adjusted_summary)}")
+        print(f"Adjusted TextRank summary: {adjusted_summary}, Sentences: {count_sentences(adjusted_summary)}, Words: {count_words(adjusted_summary)}, Tokens: {count_tokens(adjusted_summary)}")
         processing_time = time.time() - start_time
         final_word_count = count_words(adjusted_summary)
         final_token_count = count_tokens(adjusted_summary)
-        return adjusted_summary, round(processing_time, 2), final_token_count, final_word_count
+        final_sentence_count = count_sentences(adjusted_summary)
+        return adjusted_summary, round(processing_time, 2), final_token_count, final_word_count, final_sentence_count
     except Exception as e:
-        return f"Error: {str(e)}", 0, 0, 0
+        return f"Error: {str(e)}", 0, 0, 0, 0
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -166,25 +144,29 @@ def index():
     textrank_time = 0
     url = ""
     word_count = 0
+    sentence_count = 0
     warning_message = ""
     bart_token_count = 0
     textrank_token_count = 0
     bart_word_count = 0
     textrank_word_count = 0
+    bart_sentence_count = 0
+    textrank_sentence_count = 0
     if request.method == 'POST':
         url = request.form.get('url', '')
         if url:
             title, original_text = get_article_content(url)
             if original_text and not original_text.startswith("Error"):
                 word_count = count_words(original_text)
-                if word_count < 100 :
-                    warning_message = "Teks terlalu pendek (kurang dari 100 kata)."
-                elif word_count > 400:
-                    warning_message = "Teks terlalu panjang (lebih dari 400 kata)."
+                sentence_count = count_sentences(original_text)
+                if sentence_count < 5:
+                    warning_message = "Teks terlalu pendek (kurang dari 5 kalimat)."
+                elif sentence_count > 50:
+                    warning_message = "Teks terlalu panjang (lebih dari 50 kalimat)."
                 else:
-                    bart_summary, bart_time, bart_token_count, bart_word_count = summarize_with_bart(original_text)
-                    textrank_summary, textrank_time, textrank_token_count, textrank_word_count = summarize_with_textrank(
-                        original_text, target_word_count=bart_word_count
+                    bart_summary, bart_time, bart_token_count, bart_word_count, bart_sentence_count = summarize_with_bart(original_text)
+                    textrank_summary, textrank_time, textrank_token_count, textrank_word_count, textrank_sentence_count = summarize_with_textrank(
+                        original_text, target_sentence_count=bart_sentence_count
                     )
     return render_template('index.html', 
                           title=title,
@@ -192,6 +174,7 @@ def index():
                           bart_summary=bart_summary,
                           textrank_summary=textrank_summary,
                           word_count=word_count,
+                          sentence_count=sentence_count,
                           warning_message=warning_message,
                           bart_time=bart_time,
                           textrank_time=textrank_time,
@@ -199,7 +182,9 @@ def index():
                           bart_token_count=bart_token_count,
                           textrank_token_count=textrank_token_count,
                           bart_word_count=bart_word_count,
-                          textrank_word_count=textrank_word_count)
+                          textrank_word_count=textrank_word_count,
+                          bart_sentence_count=bart_sentence_count,
+                          textrank_sentence_count=textrank_sentence_count)
 
 @app.route('/api/summarize', methods=['POST'])
 def api_summarize():
@@ -211,13 +196,14 @@ def api_summarize():
     if not original_text or original_text.startswith("Error"):
         return jsonify({"error": original_text}), 400
     word_count = count_words(original_text)
-    if word_count < 100 :
-        return jsonify({"error": "Teks terlalu pendek (kurang dari 100 kata)."}), 400
-    elif word_count > 400:
-        return jsonify({"error": "Teks terlalu panjang (lebih dari 400 kata)."}), 400
-    bart_summary, _, bart_token_count, bart_word_count = summarize_with_bart(original_text)
-    textrank_summary, _, textrank_token_count, textrank_word_count = summarize_with_textrank(
-        original_text, target_word_count=bart_word_count
+    sentence_count = count_sentences(original_text)
+    if sentence_count < 5:
+        return jsonify({"error": "Teks terlalu pendek (kurang dari 5 kalimat)."}), 400
+    elif sentence_count > 50:
+        return jsonify({"error": "Teks terlalu panjang (lebih dari 50 kalimat)."}), 400
+    bart_summary, _, bart_token_count, bart_word_count, bart_sentence_count = summarize_with_bart(original_text)
+    textrank_summary, _, textrank_token_count, textrank_word_count, textrank_sentence_count = summarize_with_textrank(
+        original_text, target_sentence_count=bart_sentence_count
     )
     return jsonify({
         "title": title,
@@ -227,7 +213,11 @@ def api_summarize():
         "bart_token_count": bart_token_count,
         "textrank_token_count": textrank_token_count,
         "bart_word_count": bart_word_count,
-        "textrank_word_count": textrank_word_count
+        "textrank_word_count": textrank_word_count,
+        "bart_sentence_count": bart_sentence_count,
+        "textrank_sentence_count": textrank_sentence_count,
+        "word_count": word_count,
+        "sentence_count": sentence_count
     })
 
 if __name__ == '__main__':
