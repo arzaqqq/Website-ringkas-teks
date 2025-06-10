@@ -65,27 +65,18 @@
                         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
                     {% endif %}
-                    <div class="input-group mb-1">
+                    <div class="input-group">
                         <input type="url" class="form-control form-control-lg" id="url" name="url" 
                                placeholder="https://www.contoh.com/berita/artikel" value="{{ url }}" required aria-describedby="urlHelp">
-                    </div>
-                    <div id="urlHelp" class="form-text">Masukkan URL artikel dari portal berita online.</div>
-                    <div class="mb-3 mt-4">
-                        <label for="sentence_count" class="form-label fw-bold">Jumlah Kalimat Ringkasan</label>
-                        <select class="form-select form-control" id="sentence_count" name="sentence_count" aria-describedby="sentenceCountHelp">
-                            <option value="1" {% if selected_sentence_count == 1 %}selected{% endif %}>1 Kalimat</option>
-                            <option value="2" {% if selected_sentence_count == 2 %}selected{% endif %}>2 Kalimat</option>
-                            <option value="3" {% if selected_sentence_count == 3 %}selected{% endif %}>3 Kalimat</option>
-                        </select>
-                        <div id="sentenceCountHelp" class="form-text">Pilih jumlah kalimat untuk ringkasan.</div>
-                    </div>
-                  <button type="submit" class="btn btn-summarize">
+                        <button type="submit" class="btn btn-summarize">
                             <span class="normal-text">Ringkas Teks</span>
                             <span class="loading-spinner">
                                 <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                                 Memproses...
                             </span>
-                    </button>
+                        </button>
+                    </div>
+                    <div id="urlHelp" class="form-text">Masukkan URL artikel dari portal berita online.</div>
                 </div>
             </form>
             
@@ -102,10 +93,14 @@
                                     <i class="fas fa-clock"></i>
                                     <span> {{ bart_time }} detik</span>
                                 </div>
-                                <div class="sentence-badge">
+                                <!-- <div class="token-badge">
+                                    <i class="fas fa-coins"></i>
+                                    <span>Jumlah Token: {{ bart_token_count }}</span>
+                                </div> -->
+                                 <!-- <div class="sentence-badge">
                                     <i class="fas fa-paragraph"></i>
                                     <span>Jumlah Kalimat: {{ bart_sentence_count }}</span>
-                                </div>
+                                </div> -->
                                 <div class="word-badge">
                                     <i class="fas fa-align-left"></i>
                                     <span>Jumlah Kata: {{ bart_word_count }}</span>
@@ -120,11 +115,15 @@
                                     <i class="fas fa-clock"></i>
                                     <span>{{ textrank_time }} detik</span>
                                 </div>
-                                <div class="sentence-badge">
+                                 <!-- <div class="sentence-badge">
                                     <i class="fas fa-paragraph"></i>
                                     <span>Jumlah Kalimat: {{ textrank_sentence_count }}</span>
-                                </div>
-                                <div class="word-badge">
+                                </div> -->
+                                <!-- <div class="token-badge">
+                                    <i class="fas fa-coins"></i>
+                                    <span>Jumlah Token: {{ textrank_token_count }}</span>
+                                </div> -->
+                                <div class="word-badge ">
                                     <i class="fas fa-align-left"></i>
                                     <span>Jumlah Kata: {{ textrank_word_count }}</span>
                                 </div>
