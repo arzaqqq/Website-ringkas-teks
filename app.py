@@ -5,21 +5,23 @@ import re
 import time
 from flask import Flask, render_template, request, jsonify
 from newspaper import Article
+import requests
+from bs4 import BeautifulSoup
+
 
 # Download nltk resources
 nltk.download('punkt')
-nltk.download('punkt_tab')
 nltk.download('stopwords')
 
 app = Flask(__name__)
 
 # Initialize BART summarizer and tokenizer
-summarizer = pipeline("summarization", model="gaduhhartawan/indobart-base-v2")
+summarizer = pipeline("summarization", model="gaduhhartawan/indobart-base-v2", device=-1)
 tokenizer = AutoTokenizer.from_pretrained("gaduhhartawan/indobart-base-v2")
 
 # Daftar stopwords khusus untuk menghapus metadata berita, iklan, dan tanda --
 custom_stopwords = [
-    'ADVERTISEMENT', 'Liputan6.com', 'Jakarta-', 
+    'ADVERTISEMENT', 'Liputan6.com', 'Jakarta-', ', Jakarta',
     'GambasVideo', 'CNN', 'Detik.com', 'Tribunnews.com', 
     'Baca Juga', 'Baca juga', 'Berita Terkait', 'Simak Juga', 
     '--', '---', '–', '—', 'SCROLL TO CONTINUE WITH CONTENT'
@@ -39,15 +41,59 @@ def preprocess_text(text, remove_stopwords=True):
     print(f"Text after preprocessing: {text[:200]}...")
     return text
 
+# def get_article_content(url):
+#     """Ekstrak konten artikel dari URL berita"""
+#     try:
+#         article = Article(url)
+#         article.download()
+#         article.parse()
+#         return article.title, article.text
+#     except Exception as e:
+#         return None, f"Error: {str(e)}"
+
+
+
 def get_article_content(url):
-    """Ekstrak konten artikel dari URL berita"""
+    """Scrape artikel berdasarkan URL. Gunakan BeautifulSoup jika situs tidak kompatibel dengan newspaper3k."""
     try:
-        article = Article(url)
-        article.download()
-        article.parse()
-        return article.title, article.text
+        if "liputan6.com" in url:
+            response = requests.get(url)
+            soup = BeautifulSoup(response.content, 'html.parser')
+
+            # Cari judul
+            title_tag = soup.find('h1')
+            title = title_tag.get_text(strip=True) if title_tag else "Judul tidak ditemukan"
+
+            # Ambil semua paragraf dari kontainer utama
+            paragraphs = soup.select('div.article-content-body p')
+            if not paragraphs:
+                # fallback jika struktur berbeda
+                paragraphs = soup.find_all('p')
+
+            # Gabungkan isi teks
+            content = ' '.join(p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True))
+
+            if len(content.strip()) < 100:
+                return None, "Konten artikel Liputan6 terlalu pendek atau gagal diproses."
+
+            return title, content
+
+        else:
+            # === Gunakan newspaper untuk situs umum ===
+            from newspaper import Article
+            article = Article(url)
+            article.download()
+            article.parse()
+
+            if not article.text.strip():
+                return None, "Teks artikel kosong setelah parsing."
+
+            return article.title, article.text
+
     except Exception as e:
-        return None, f"Error: {str(e)}"
+        return None, f"Error saat scraping: {str(e)}"
+
+
 
 def count_words(text):
     """Menghitung jumlah kata dalam teks"""
@@ -71,8 +117,8 @@ def summarize_with_bart(text, target_sentence_count):
         if len(tokens) > 1024:
             text = tokenizer.decode(tokens[:1024])
         text = preprocess_text(text, remove_stopwords=False)
-        max_length = target_sentence_count * 100
-        min_length = target_sentence_count * 75
+        max_length = target_sentence_count * 150
+        min_length = target_sentence_count * 50
         summary = summarizer(
             text, 
             do_sample=False, 
@@ -177,10 +223,12 @@ def index():
             if original_text and not original_text.startswith("Error"):
                 word_count = count_words(original_text)
                 sentence_count = count_sentences(original_text)
-                if sentence_count < selected_sentence_count:
-                    warning_message = f"Teks terlalu pendek (kurang dari {selected_sentence_count} kalimat)."
-                elif sentence_count > 50:
-                    warning_message = "Teks terlalu panjang (lebih dari 50 kalimat)."
+                if word_count < 10:
+                    warning_message = f"Teks terlalu pendek (kurang dari 10 kata, hanya {word_count} kata)."
+                elif word_count > 400:
+                    warning_message = f"Teks terlalu panjang (lebih dari 400 kata, yaitu {word_count} kata)."
+                elif sentence_count < selected_sentence_count:
+                    warning_message = f"Teks memiliki terlalu sedikit kalimat (kurang dari {selected_sentence_count} kalimat)."
                 else:
                     bart_summary, bart_time, bart_token_count, bart_word_count, bart_sentence_count = summarize_with_bart(original_text, selected_sentence_count)
                     textrank_summary, textrank_time, textrank_token_count, textrank_word_count, textrank_sentence_count = summarize_with_textrank(
@@ -217,10 +265,12 @@ def api_summarize():
         return jsonify({"error": original_text}), 400
     word_count = count_words(original_text)
     sentence_count = count_sentences(original_text)
-    if sentence_count < selected_sentence_count:
-        return jsonify({"error": f"Teks terlalu pendek (kurang dari {selected_sentence_count} kalimat)."}), 400
-    elif sentence_count > 50:
-        return jsonify({"error": "Teks terlalu panjang (lebih dari 50 kalimat)."}), 400
+    if word_count < 10:
+        return jsonify({"error": f"Teks terlalu pendek (kurang dari 10 kata, hanya {word_count} kata)."}), 400
+    elif word_count > 400:
+        return jsonify({"error": f"Teks terlalu panjang (lebih dari 400 kata, yaitu {word_count} kata)."}), 400
+    elif sentence_count < selected_sentence_count:
+        return jsonify({"error": f"Teks memiliki terlalu sedikit kalimat (kurang dari {selected_sentence_count} kalimat)."}), 400
     bart_summary, _, bart_token_count, bart_word_count, bart_sentence_count = summarize_with_bart(original_text, selected_sentence_count)
     textrank_summary, _, textrank_token_count, textrank_word_count, textrank_sentence_count = summarize_with_textrank(
         original_text, target_sentence_count=selected_sentence_count
